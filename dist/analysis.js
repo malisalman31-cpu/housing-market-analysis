@@ -1,12 +1,24 @@
 export const NEIGHBORHOODS = [
-  { name: "Beverly Hills", region: "Westside", ppsf: 1120, income: 196000 },
-  { name: "Santa Monica", region: "Westside", ppsf: 910, income: 142000 },
-  { name: "Silver Lake", region: "Central", ppsf: 760, income: 126000 },
-  { name: "Pasadena", region: "San Gabriel Valley", ppsf: 625, income: 112000 },
-  { name: "Long Beach", region: "South Bay", ppsf: 545, income: 92000 },
-  { name: "Inglewood", region: "South LA", ppsf: 515, income: 87000 },
-  { name: "North Hollywood", region: "San Fernando Valley", ppsf: 570, income: 97000 },
-  { name: "Culver City", region: "Westside", ppsf: 805, income: 132000 },
+  { name: "San Francisco", region: "Bay Area", ppsf: 1180, income: 184000 },
+  { name: "Oakland", region: "Bay Area", ppsf: 710, income: 126000 },
+  { name: "San Jose", region: "Bay Area", ppsf: 890, income: 171000 },
+  { name: "Palo Alto", region: "Bay Area", ppsf: 1420, income: 225000 },
+  { name: "Los Angeles", region: "Greater Los Angeles", ppsf: 760, income: 124000 },
+  { name: "Santa Monica", region: "Greater Los Angeles", ppsf: 980, income: 151000 },
+  { name: "Pasadena", region: "Greater Los Angeles", ppsf: 650, income: 116000 },
+  { name: "Long Beach", region: "Greater Los Angeles", ppsf: 565, income: 96000 },
+  { name: "San Diego", region: "San Diego County", ppsf: 720, income: 121000 },
+  { name: "La Jolla", region: "San Diego County", ppsf: 1040, income: 166000 },
+  { name: "Chula Vista", region: "San Diego County", ppsf: 510, income: 93000 },
+  { name: "Sacramento", region: "Central Valley", ppsf: 390, income: 88000 },
+  { name: "Fresno", region: "Central Valley", ppsf: 275, income: 72000 },
+  { name: "Bakersfield", region: "Central Valley", ppsf: 245, income: 69000 },
+  { name: "Stockton", region: "Central Valley", ppsf: 310, income: 76000 },
+  { name: "Santa Barbara", region: "Central Coast", ppsf: 930, income: 134000 },
+  { name: "San Luis Obispo", region: "Central Coast", ppsf: 690, income: 105000 },
+  { name: "Monterey", region: "Central Coast", ppsf: 745, income: 111000 },
+  { name: "Riverside", region: "Inland Empire", ppsf: 385, income: 86000 },
+  { name: "Palm Springs", region: "Inland Empire", ppsf: 455, income: 82000 },
 ];
 
 export const HOME_TYPES = [
@@ -34,7 +46,7 @@ function round(value, precision = 0) {
   return Math.round(value * factor) / factor;
 }
 
-export function buildDataset(count = 10250, seed = 202503) {
+export function buildDataset(count = 20500, seed = 202503) {
   if (!Number.isInteger(count) || count < 1) throw new Error("count must be a positive integer");
   const random = mulberry32(seed);
   return Array.from({ length: count }, (_, index) => {
@@ -51,7 +63,7 @@ export function buildDataset(count = 10250, seed = 202503) {
     const affordabilityRatio = round(salePrice / householdIncome, 2);
     const segment = salePrice < 750000 ? "Entry" : salePrice < 1500000 ? "Mid-market" : "Premium";
     return {
-      id: `LA-${String(index + 1).padStart(5, "0")}`,
+      id: `CA-${String(index + 1).padStart(5, "0")}`,
       neighborhood: neighborhood.name,
       region: neighborhood.region,
       homeType: homeType.name,
@@ -78,8 +90,9 @@ export function median(values) {
 }
 
 export function filterRecords(records, filters = {}) {
-  const { neighborhood = "All", homeType = "All", segment = "All", bedrooms = "All" } = filters;
+  const { region = "All", neighborhood = "All", homeType = "All", segment = "All", bedrooms = "All" } = filters;
   return records.filter((record) =>
+    (region === "All" || record.region === region) &&
     (neighborhood === "All" || record.neighborhood === neighborhood) &&
     (homeType === "All" || record.homeType === homeType) &&
     (segment === "All" || record.segment === segment) &&
@@ -98,9 +111,9 @@ export function summarize(records, total = records.length) {
 }
 
 const VIEW_CONFIG = {
-  price: { key: "salePrice", label: "Median sale price", title: "Median sale price by neighborhood", better: "high" },
-  affordability: { key: "affordabilityRatio", label: "Price ÷ annual income", title: "Affordability burden by neighborhood", better: "low" },
-  ppsf: { key: "pricePerSqft", label: "Median price per square foot", title: "Median price per square foot by neighborhood", better: "high" },
+  price: { key: "salePrice", label: "Median sale price", title: "Median sale price by California market", better: "high" },
+  affordability: { key: "affordabilityRatio", label: "Price ÷ annual income", title: "Affordability burden by California market", better: "low" },
+  ppsf: { key: "pricePerSqft", label: "Median price per square foot", title: "Median price per square foot by California market", better: "high" },
 };
 
 export function groupMarketView(records, view = "price") {

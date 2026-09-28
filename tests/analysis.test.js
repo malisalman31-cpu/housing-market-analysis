@@ -5,7 +5,7 @@ import { buildDataset, buildInsights, filterRecords, formatCurrency, formatViewV
 const records = buildDataset();
 
 test("buildDataset creates the documented deterministic record count", () => {
-  assert.equal(records.length, 10250);
+  assert.equal(records.length, 20500);
   assert.deepEqual(buildDataset(3, 10), buildDataset(3, 10));
   assert.notDeepEqual(buildDataset(3, 10), buildDataset(3, 11));
 });
@@ -16,8 +16,8 @@ test("buildDataset validates count", () => {
 });
 
 test("generated records contain valid identifiers and derived variables", () => {
-  assert.equal(records[0].id, "LA-00001");
-  assert.equal(records.at(-1).id, "LA-10250");
+  assert.equal(records[0].id, "CA-00001");
+  assert.equal(records.at(-1).id, "CA-20500");
   for (const record of records.slice(0, 100)) {
     assert.ok(record.salePrice > 0);
     assert.ok(record.pricePerSqft > 0);
@@ -43,7 +43,7 @@ test("median handles odd, even, missing, and non-finite values", () => {
 
 test("filterRecords applies every dimension independently and together", () => {
   const fixture = records[100];
-  for (const [key, value] of Object.entries({ neighborhood: fixture.neighborhood, homeType: fixture.homeType, segment: fixture.segment, bedrooms: fixture.bedrooms })) {
+  for (const [key, value] of Object.entries({ region: fixture.region, neighborhood: fixture.neighborhood, homeType: fixture.homeType, segment: fixture.segment, bedrooms: fixture.bedrooms })) {
     const result = filterRecords(records, { [key]: value });
     assert.ok(result.length > 0);
     assert.ok(result.every((record) => record[key] === value || (key === "bedrooms" && record.bedrooms === Number(value))));
@@ -57,7 +57,7 @@ test("filterRecords applies every dimension independently and together", () => {
 test("summarize reports medians, count, and share", () => {
   const summary = summarize(records.slice(0, 100), records.length);
   assert.equal(summary.count, 100);
-  assert.equal(summary.share, 100 / 10250);
+  assert.equal(summary.share, 100 / 20500);
   assert.ok(summary.medianPrice > 0);
   assert.ok(summary.medianPpsf > 0);
   assert.ok(summary.medianRatio > 0);

@@ -3,7 +3,7 @@ import test from "node:test";
 import { registerHousingTools } from "../dist/webmcp.js";
 
 const callbacks = {
-  setFilters: async (input) => ({ changed: input }), readSummary: async () => ({ count: 10250 }),
+  setFilters: async (input) => ({ changed: input }), readSummary: async () => ({ count: 20500 }),
   compareMarkets: async (view) => ({ view }), exportView: async (limit) => ({ limit }),
 };
 
@@ -30,7 +30,7 @@ test("tool executors forward inputs and default export limit", async () => {
   registerHousingTools({ modelContext: { registerTool(tool) { registered.push(tool); } }, ...callbacks });
   const byName = Object.fromEntries(registered.map((tool) => [tool.name, tool]));
   assert.deepEqual(await byName.set_housing_market_filters.execute({ segment: "Entry" }), { changed: { segment: "Entry" } });
-  assert.deepEqual(await byName.read_housing_market_summary.execute({}), { count: 10250 });
+  assert.deepEqual(await byName.read_housing_market_summary.execute({}), { count: 20500 });
   assert.deepEqual(await byName.compare_housing_markets.execute({ view: "ppsf" }), { view: "ppsf" });
   assert.deepEqual(await byName.export_housing_market_view.execute({}), { limit: 25 });
   assert.deepEqual(await byName.export_housing_market_view.execute({ limit: 7 }), { limit: 7 });

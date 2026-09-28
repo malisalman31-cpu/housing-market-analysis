@@ -3,7 +3,7 @@ import { registerHousingTools } from "./webmcp.js";
 
 const records = buildDataset();
 const elements = {
-  neighborhood: document.querySelector("#neighborhood-filter"), type: document.querySelector("#type-filter"), segment: document.querySelector("#segment-filter"), bedrooms: document.querySelector("#bedroom-filter"),
+  region: document.querySelector("#region-filter"), neighborhood: document.querySelector("#neighborhood-filter"), type: document.querySelector("#type-filter"), segment: document.querySelector("#segment-filter"), bedrooms: document.querySelector("#bedroom-filter"),
   metricPrice: document.querySelector("#metric-price"), metricPpsf: document.querySelector("#metric-ppsf"), metricRatio: document.querySelector("#metric-ratio"), metricCount: document.querySelector("#metric-count"), metricShare: document.querySelector("#metric-share"),
   title: document.querySelector("#view-title"), axis: document.querySelector("#axis-label"), chart: document.querySelector("#bar-chart"), caption: document.querySelector("#chart-caption"), insights: document.querySelector("#insights"), tabs: document.querySelector(".view-tabs"), toast: document.querySelector("#toast"),
 };
@@ -12,12 +12,13 @@ let filtered = records;
 let toastTimer;
 
 function addOptions(select, values) { for (const value of values) select.add(new Option(value, value)); }
+addOptions(elements.region, [...new Set(NEIGHBORHOODS.map(({ region }) => region))]);
 addOptions(elements.neighborhood, NEIGHBORHOODS.map(({ name }) => name));
 addOptions(elements.type, HOME_TYPES.map(({ name }) => name));
 addOptions(elements.segment, SEGMENTS);
 addOptions(elements.bedrooms, [1, 2, 3, 4, 5]);
 
-function currentFilters() { return { neighborhood: elements.neighborhood.value, homeType: elements.type.value, segment: elements.segment.value, bedrooms: elements.bedrooms.value }; }
+function currentFilters() { return { region: elements.region.value, neighborhood: elements.neighborhood.value, homeType: elements.type.value, segment: elements.segment.value, bedrooms: elements.bedrooms.value }; }
 function showToast(message) { clearTimeout(toastTimer); elements.toast.textContent = message; elements.toast.classList.add("show"); toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 2400); }
 
 function render() {
@@ -27,7 +28,7 @@ function render() {
   elements.metricPpsf.textContent = summary.medianPpsf == null ? "—" : formatCurrency(summary.medianPpsf);
   elements.metricRatio.textContent = summary.medianRatio == null ? "—" : `${summary.medianRatio.toFixed(1)}×`;
   elements.metricCount.textContent = summary.count.toLocaleString();
-  elements.metricShare.textContent = `${(summary.share * 100).toFixed(1)}% of 10,250 properties`;
+  elements.metricShare.textContent = `${(summary.share * 100).toFixed(1)}% of ${records.length.toLocaleString()} properties`;
   const market = groupMarketView(filtered, view);
   elements.title.textContent = market.title; elements.axis.textContent = market.label;
   renderChart(market.values); renderInsights(buildInsights(filtered, view));
@@ -56,7 +57,7 @@ function renderInsights(insights) {
 }
 
 function setFilters(input = {}) {
-  const mapping = { neighborhood: elements.neighborhood, homeType: elements.type, segment: elements.segment, bedrooms: elements.bedrooms };
+  const mapping = { region: elements.region, neighborhood: elements.neighborhood, homeType: elements.type, segment: elements.segment, bedrooms: elements.bedrooms };
   for (const [key, select] of Object.entries(mapping)) {
     if (input[key] == null) continue;
     const value = String(input[key]);
@@ -71,9 +72,9 @@ function readSummary() { return { filters: currentFilters(), view, ...summarize(
 function compareMarkets(requestedView = view) { return groupMarketView(filtered, requestedView); }
 function exportView(limit = filtered.length) { const safeLimit = Math.max(1, Math.min(100, Math.floor(limit))); return { filters: currentFilters(), returned: Math.min(safeLimit, filtered.length), total: filtered.length, csv: toCsv(filtered.slice(0, safeLimit)) }; }
 
-for (const select of [elements.neighborhood, elements.type, elements.segment, elements.bedrooms]) select.addEventListener("change", render);
+for (const select of [elements.region, elements.neighborhood, elements.type, elements.segment, elements.bedrooms]) select.addEventListener("change", render);
 elements.tabs.addEventListener("click", (event) => { const requested = event.target.closest("button[data-view]")?.dataset.view; if (!requested) return; view = requested; render(); });
-document.querySelector("#reset-filters").addEventListener("click", () => { setFilters({ neighborhood: "All", homeType: "All", segment: "All", bedrooms: "All", view: "price" }); showToast("Filters reset."); });
+document.querySelector("#reset-filters").addEventListener("click", () => { setFilters({ region: "All", neighborhood: "All", homeType: "All", segment: "All", bedrooms: "All", view: "price" }); showToast("Filters reset."); });
 document.querySelector("#download-csv").addEventListener("click", () => { const blob = new Blob([toCsv(filtered)], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = "housing-market-view.csv"; anchor.click(); URL.revokeObjectURL(url); showToast(`${filtered.length.toLocaleString()} rows downloaded.`); });
 
 render();

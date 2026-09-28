@@ -8,14 +8,26 @@ import pandas as pd
 
 NEIGHBORHOODS = pd.DataFrame(
     [
-        ("Beverly Hills", "Westside", 1120, 196_000),
-        ("Santa Monica", "Westside", 910, 142_000),
-        ("Silver Lake", "Central", 760, 126_000),
-        ("Pasadena", "San Gabriel Valley", 625, 112_000),
-        ("Long Beach", "South Bay", 545, 92_000),
-        ("Inglewood", "South LA", 515, 87_000),
-        ("North Hollywood", "San Fernando Valley", 570, 97_000),
-        ("Culver City", "Westside", 805, 132_000),
+        ("San Francisco", "Bay Area", 1180, 184_000),
+        ("Oakland", "Bay Area", 710, 126_000),
+        ("San Jose", "Bay Area", 890, 171_000),
+        ("Palo Alto", "Bay Area", 1420, 225_000),
+        ("Los Angeles", "Greater Los Angeles", 760, 124_000),
+        ("Santa Monica", "Greater Los Angeles", 980, 151_000),
+        ("Pasadena", "Greater Los Angeles", 650, 116_000),
+        ("Long Beach", "Greater Los Angeles", 565, 96_000),
+        ("San Diego", "San Diego County", 720, 121_000),
+        ("La Jolla", "San Diego County", 1040, 166_000),
+        ("Chula Vista", "San Diego County", 510, 93_000),
+        ("Sacramento", "Central Valley", 390, 88_000),
+        ("Fresno", "Central Valley", 275, 72_000),
+        ("Bakersfield", "Central Valley", 245, 69_000),
+        ("Stockton", "Central Valley", 310, 76_000),
+        ("Santa Barbara", "Central Coast", 930, 134_000),
+        ("San Luis Obispo", "Central Coast", 690, 105_000),
+        ("Monterey", "Central Coast", 745, 111_000),
+        ("Riverside", "Inland Empire", 385, 86_000),
+        ("Palm Springs", "Inland Empire", 455, 82_000),
     ],
     columns=["neighborhood", "region", "base_ppsf", "base_income"],
 )
@@ -41,10 +53,10 @@ class PipelineResult:
     views: dict[str, list[dict]]
 
 
-def generate_raw_data(count: int = 10_385, seed: int = 202_503) -> pd.DataFrame:
+def generate_raw_data(count: int = 20_770, seed: int = 202_503) -> pd.DataFrame:
     """Create a deterministic stand-in for the unavailable original source data."""
-    if count < 136:
-        raise ValueError("count must be at least 136 so quality fixtures can be included")
+    if count < 271:
+        raise ValueError("count must be at least 271 so quality fixtures can be included")
     rng = np.random.default_rng(seed)
     neighborhood_index = np.arange(count) % len(NEIGHBORHOODS)
     type_index = (np.arange(count) * 3 + rng.integers(0, len(HOME_TYPES), count)) % len(HOME_TYPES)
@@ -60,15 +72,15 @@ def generate_raw_data(count: int = 10_385, seed: int = 202_503) -> pd.DataFrame:
     household_income = np.rint(places["base_income"].to_numpy() * (.72 + rng.random(count) * .72) / 1000) * 1000
     frame = pd.DataFrame(
         {
-            "id": [f"LA-{index:05d}" for index in range(1, count + 1)],
+            "id": [f"CA-{index:05d}" for index in range(1, count + 1)],
             "neighborhood": places["neighborhood"], "region": places["region"], "home_type": types["home_type"],
             "bedrooms": bedrooms, "bathrooms": bathrooms, "square_feet": square_feet,
             "sale_price": sale_price, "household_income": household_income,
             "property_age": property_age, "condition_score": condition_score,
         }
     )
-    frame.loc[:79, "sale_price"] = np.nan
-    frame.loc[80:134, "square_feet"] = -1
+    frame.loc[:159, "sale_price"] = np.nan
+    frame.loc[160:269, "square_feet"] = -1
     return frame
 
 
@@ -91,7 +103,7 @@ def clean_market_data(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_market_views(frame: pd.DataFrame) -> dict[str, list[dict]]:
-    """Return the three neighborhood views used by the dashboard."""
+    """Return the three California market views used by the dashboard."""
     metrics = {"price": "sale_price", "affordability": "affordability_ratio", "ppsf": "price_per_sqft"}
     views: dict[str, list[dict]] = {}
     for name, metric in metrics.items():
@@ -100,7 +112,7 @@ def build_market_views(frame: pd.DataFrame) -> dict[str, list[dict]]:
     return views
 
 
-def run_pipeline(count: int = 10_385, seed: int = 202_503) -> PipelineResult:
+def run_pipeline(count: int = 20_770, seed: int = 202_503) -> PipelineResult:
     raw = generate_raw_data(count=count, seed=seed)
     clean = clean_market_data(raw)
     return PipelineResult(raw=raw, clean=clean, views=build_market_views(clean))
