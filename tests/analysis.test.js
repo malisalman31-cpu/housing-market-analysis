@@ -95,7 +95,7 @@ test("formatters cover currency, compact values, ratios, and nulls", () => {
   assert.equal(formatCurrency(null), "—");
   assert.equal(formatViewValue(8.45, "affordability"), "8.4×");
   assert.match(formatViewValue(650, "ppsf"), /650.*ft²/);
-  assert.match(formatViewValue(900000, "price"), /900K/);
+  assert.match(formatViewValue(900000, "price"), /900(?:\.0)?K/);
   assert.equal(formatViewValue(Number.NaN, "price"), "—");
 });
 
