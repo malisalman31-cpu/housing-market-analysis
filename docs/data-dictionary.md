@@ -21,4 +21,4 @@ All fields are synthetic and generated deterministically for this portfolio demo
 
 ## Cleaning rules
 
-The raw pandas fixture contains 20,770 rows. One hundred sixty rows have missing sale prices and 110 have impossible negative floor area. The cleaning stage coerces numeric fields, removes incomplete or impossible records, and retains 20,500 rows before deriving the analytical features.
+The `raw_properties` SQL table contains 20,770 deterministic rows. One hundred sixty rows have missing sale prices and 110 have impossible negative floor area. A checked-in `INSERT ... SELECT` removes those 270 records and derives the price-per-square-foot, affordability, market-segment, and quality fields in SQLite. The 20,500 clean rows are constrained at the database layer and indexed for the dashboard's region, market, housing-type, segment, and bedroom filters.

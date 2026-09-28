@@ -19,6 +19,7 @@ def payload() -> dict:
         "clean_records": len(result.clean),
         "retention_rate": round(len(result.clean) / len(result.raw), 4),
         "feature_groups": FEATURE_GROUPS,
+        "sql_validation": result.validation,
         "views": result.views,
     }
 

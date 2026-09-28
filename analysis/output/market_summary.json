@@ -30,149 +30,163 @@
   "provenance": "Deterministic synthetic portfolio recreation; the original source dataset was not provided.",
   "raw_records": 20770,
   "retention_rate": 0.987,
+  "sql_validation": {
+    "all_indexes_present": true,
+    "clean_records": 20500,
+    "filter_query_plan": "SEARCH clean_properties USING INDEX idx_clean_region_neighborhood (region=? AND neighborhood=?)",
+    "filter_query_uses_index": true,
+    "indexes": [
+      "idx_clean_bedrooms",
+      "idx_clean_home_type",
+      "idx_clean_market_segment",
+      "idx_clean_region_neighborhood"
+    ],
+    "invalid_rows_removed": 270,
+    "raw_records": 20770
+  },
   "views": {
     "affordability": [
       {
         "neighborhood": "Santa Barbara",
         "records": 1025,
-        "value": 10.64
-      },
-      {
-        "neighborhood": "San Luis Obispo",
-        "records": 1025,
-        "value": 10.04
+        "value": 10.49
       },
       {
         "neighborhood": "Monterey",
         "records": 1025,
-        "value": 9.88
-      },
-      {
-        "neighborhood": "Palo Alto",
-        "records": 1025,
-        "value": 9.68
-      },
-      {
-        "neighborhood": "San Francisco",
-        "records": 1025,
-        "value": 9.49
+        "value": 10.02
       },
       {
         "neighborhood": "Santa Monica",
         "records": 1025,
-        "value": 9.42
+        "value": 9.94
       },
       {
-        "neighborhood": "Los Angeles",
+        "neighborhood": "San Luis Obispo",
         "records": 1025,
-        "value": 9.26
+        "value": 9.9
+      },
+      {
+        "neighborhood": "San Francisco",
+        "records": 1025,
+        "value": 9.55
       },
       {
         "neighborhood": "La Jolla",
         "records": 1025,
-        "value": 9.23
+        "value": 9.36
       },
       {
-        "neighborhood": "San Diego",
+        "neighborhood": "Palo Alto",
         "records": 1025,
-        "value": 8.97
+        "value": 9.31
+      },
+      {
+        "neighborhood": "Los Angeles",
+        "records": 1025,
+        "value": 9.12
       },
       {
         "neighborhood": "Long Beach",
         "records": 1025,
-        "value": 8.86
+        "value": 8.93
       },
       {
-        "neighborhood": "Chula Vista",
+        "neighborhood": "San Diego",
         "records": 1025,
-        "value": 8.43
+        "value": 8.83
       },
       {
         "neighborhood": "Oakland",
         "records": 1025,
-        "value": 8.36
-      },
-      {
-        "neighborhood": "Pasadena",
-        "records": 1025,
-        "value": 8.35
+        "value": 8.48
       },
       {
         "neighborhood": "Palm Springs",
         "records": 1025,
-        "value": 8.14
+        "value": 8.39
+      },
+      {
+        "neighborhood": "Pasadena",
+        "records": 1025,
+        "value": 8.16
+      },
+      {
+        "neighborhood": "Chula Vista",
+        "records": 1025,
+        "value": 8.02
       },
       {
         "neighborhood": "San Jose",
         "records": 1025,
-        "value": 7.8
+        "value": 7.53
       },
       {
         "neighborhood": "Riverside",
         "records": 1025,
-        "value": 6.69
+        "value": 6.71
       },
       {
         "neighborhood": "Sacramento",
         "records": 1025,
-        "value": 6.57
+        "value": 6.67
       },
       {
         "neighborhood": "Stockton",
         "records": 1025,
-        "value": 6.09
+        "value": 6.03
       },
       {
         "neighborhood": "Fresno",
         "records": 1025,
-        "value": 5.67
+        "value": 5.89
       },
       {
         "neighborhood": "Bakersfield",
         "records": 1025,
-        "value": 5.3
+        "value": 5.4
       }
     ],
     "ppsf": [
       {
         "neighborhood": "Palo Alto",
         "records": 1025,
-        "value": 1492.0
+        "value": 1482.0
       },
       {
         "neighborhood": "San Francisco",
         "records": 1025,
-        "value": 1232.0
+        "value": 1239.0
       },
       {
         "neighborhood": "La Jolla",
         "records": 1025,
-        "value": 1080.0
+        "value": 1088.0
       },
       {
         "neighborhood": "Santa Monica",
         "records": 1025,
-        "value": 1013.0
+        "value": 1016.0
       },
       {
         "neighborhood": "Santa Barbara",
         "records": 1025,
-        "value": 971.0
+        "value": 970.0
       },
       {
         "neighborhood": "San Jose",
         "records": 1025,
-        "value": 921.0
+        "value": 922.0
       },
       {
         "neighborhood": "Los Angeles",
         "records": 1025,
-        "value": 789.0
+        "value": 787.0
       },
       {
         "neighborhood": "Monterey",
         "records": 1025,
-        "value": 783.0
+        "value": 785.0
       },
       {
         "neighborhood": "San Diego",
@@ -187,154 +201,154 @@
       {
         "neighborhood": "San Luis Obispo",
         "records": 1025,
-        "value": 722.0
+        "value": 724.0
       },
       {
         "neighborhood": "Pasadena",
         "records": 1025,
-        "value": 681.0
+        "value": 676.0
       },
       {
         "neighborhood": "Long Beach",
         "records": 1025,
-        "value": 587.0
+        "value": 592.0
       },
       {
         "neighborhood": "Chula Vista",
         "records": 1025,
-        "value": 536.0
+        "value": 528.0
       },
       {
         "neighborhood": "Palm Springs",
         "records": 1025,
-        "value": 474.0
+        "value": 476.0
       },
       {
         "neighborhood": "Sacramento",
         "records": 1025,
-        "value": 407.0
+        "value": 408.0
       },
       {
         "neighborhood": "Riverside",
         "records": 1025,
-        "value": 404.0
+        "value": 402.0
       },
       {
         "neighborhood": "Stockton",
         "records": 1025,
-        "value": 325.0
+        "value": 327.0
       },
       {
         "neighborhood": "Fresno",
         "records": 1025,
-        "value": 287.0
+        "value": 288.0
       },
       {
         "neighborhood": "Bakersfield",
         "records": 1025,
-        "value": 256.0
+        "value": 255.0
       }
     ],
     "price": [
       {
         "neighborhood": "Palo Alto",
         "records": 1025,
-        "value": 2363000.0
+        "value": 2278000.0
       },
       {
         "neighborhood": "San Francisco",
         "records": 1025,
-        "value": 1928000.0
+        "value": 1925000.0
       },
       {
         "neighborhood": "La Jolla",
         "records": 1025,
-        "value": 1683000.0
+        "value": 1682000.0
       },
       {
         "neighborhood": "Santa Monica",
         "records": 1025,
-        "value": 1552000.0
+        "value": 1629000.0
       },
       {
         "neighborhood": "Santa Barbara",
         "records": 1025,
-        "value": 1517000.0
+        "value": 1546000.0
       },
       {
         "neighborhood": "San Jose",
         "records": 1025,
-        "value": 1455000.0
+        "value": 1418000.0
       },
       {
         "neighborhood": "Los Angeles",
         "records": 1025,
-        "value": 1259000.0
+        "value": 1214000.0
       },
       {
         "neighborhood": "Monterey",
         "records": 1025,
-        "value": 1194000.0
+        "value": 1210000.0
       },
       {
         "neighborhood": "San Diego",
         "records": 1025,
-        "value": 1187000.0
+        "value": 1166000.0
       },
       {
         "neighborhood": "Oakland",
         "records": 1025,
-        "value": 1147000.0
+        "value": 1157000.0
       },
       {
         "neighborhood": "San Luis Obispo",
         "records": 1025,
-        "value": 1139000.0
+        "value": 1142000.0
       },
       {
         "neighborhood": "Pasadena",
         "records": 1025,
-        "value": 1047000.0
+        "value": 1051000.0
       },
       {
         "neighborhood": "Long Beach",
         "records": 1025,
-        "value": 914000.0
+        "value": 944000.0
       },
       {
         "neighborhood": "Chula Vista",
         "records": 1025,
-        "value": 847000.0
+        "value": 811000.0
       },
       {
         "neighborhood": "Palm Springs",
         "records": 1025,
-        "value": 730000.0
+        "value": 751000.0
       },
       {
         "neighborhood": "Sacramento",
         "records": 1025,
-        "value": 636000.0
+        "value": 658000.0
       },
       {
         "neighborhood": "Riverside",
         "records": 1025,
-        "value": 626000.0
+        "value": 624000.0
       },
       {
         "neighborhood": "Stockton",
         "records": 1025,
-        "value": 512000.0
+        "value": 509000.0
       },
       {
         "neighborhood": "Fresno",
         "records": 1025,
-        "value": 440000.0
+        "value": 453000.0
       },
       {
         "neighborhood": "Bakersfield",
         "records": 1025,
-        "value": 399000.0
+        "value": 406000.0
       }
     ]
   }

@@ -8,7 +8,7 @@
     "build:data": "python3 analysis/build_dashboard_data.py",
     "test": "node --test && python3 -m unittest discover -s tests -p 'test_*.py'",
     "test:coverage": "node --test --experimental-test-coverage",
-    "check": "node --check dist/analysis.js && node --check dist/app.js && node --check dist/webmcp.js && node --test"
+    "check": "node --check dist/analysis.js && node --check dist/app.js && node --check dist/webmcp.js && node --test && python3 -m unittest discover -s tests -p 'test_*.py' && python3 analysis/build_dashboard_data.py --check"
   },
   "engines": { "node": ">=20" },
   "license": "MIT"

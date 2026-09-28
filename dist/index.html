@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Explore price, affordability, and price-per-square-foot patterns across a deterministic 20,500-property California housing dataset." />
+  <meta name="description" content="Explore SQL-modeled price, affordability, and price-per-square-foot patterns across a deterministic 20,500-property California housing dataset." />
   <meta name="theme-color" content="#07111f" />
   <title>California Housing Market Lab</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111f'/%3E%3Cpath d='M12 44V27l20-15 20 15v17H38V32H26v12z' fill='%234ee6c1'/%3E%3C/svg%3E" />
@@ -16,7 +16,7 @@
       <span class="brand-mark" aria-hidden="true"></span>
       <span>California Housing <strong>Lab</strong></span>
     </a>
-    <div class="dataset-note"><span class="pulse"></span><strong>20,500</strong> cleaned records</div>
+    <div class="dataset-note"><span class="pulse"></span><strong>SQL</strong> pipeline · 20,500 records</div>
     <button class="download-button" id="download-csv" type="button">Download filtered CSV</button>
   </header>
 
@@ -29,7 +29,7 @@
       </div>
       <aside class="transparency-card">
         <span>Portfolio recreation</span>
-        <p>Deterministic synthetic data spans 20 representative California markets; no original source file was provided.</p>
+        <p>Deterministic synthetic data is cleaned and modeled in SQLite across 20 representative California markets; no original source file was provided.</p>
       </aside>
     </section>
 
@@ -92,8 +92,8 @@
 
     <section class="method" aria-labelledby="method-title">
       <div>
-        <p class="eyebrow">Reusable feature pipeline</p>
-        <h2 id="method-title">Five groups, one explainable view.</h2>
+        <p class="eyebrow">SQL feature pipeline</p>
+        <h2 id="method-title">Five groups, one explainable SQL model.</h2>
       </div>
       <ol>
         <li><span>01</span><strong>Core</strong><small>type, beds, baths, area</small></li>
@@ -107,7 +107,7 @@
 
   <footer>
     <span>California Housing Market Lab</span>
-    <span>Built for transparent, reproducible portfolio analysis.</span>
+    <span>SQLite analysis · transparent synthetic data.</span>
   </footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="./app.js"></script>
