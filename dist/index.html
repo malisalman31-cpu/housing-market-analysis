@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Explore price, affordability, and price-per-square-foot patterns across a deterministic 10,250-property housing dataset." />
+  <meta name="theme-color" content="#07111f" />
+  <title>Housing Market Lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111f'/%3E%3Cpath d='M12 44V27l20-15 20 15v17H38V32H26v12z' fill='%234ee6c1'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#analysis">Skip to analysis</a>
+  <header class="topbar">
+    <a class="brand" href="#analysis" aria-label="Housing Market Lab home">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>Housing Market <strong>Lab</strong></span>
+    </a>
+    <div class="dataset-note"><span class="pulse"></span><strong>10,250</strong> cleaned records</div>
+    <button class="download-button" id="download-csv" type="button">Download filtered CSV</button>
+  </header>
+
+  <main id="analysis">
+    <section class="intro" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">Three market views · Los Angeles sample</p>
+        <h1 id="page-title">See where the market bends.</h1>
+        <p>Compare sale prices, price per square foot, and household affordability across neighborhoods and housing types.</p>
+      </div>
+      <aside class="transparency-card">
+        <span>Portfolio recreation</span>
+        <p>Deterministic synthetic data mirrors the analysis described in the resume; no original source file was provided.</p>
+      </aside>
+    </section>
+
+    <section class="filterbar" aria-label="Market filters">
+      <label>Neighborhood
+        <select id="neighborhood-filter"><option value="All">All neighborhoods</option></select>
+      </label>
+      <label>Home type
+        <select id="type-filter"><option value="All">All home types</option></select>
+      </label>
+      <label>Market segment
+        <select id="segment-filter"><option value="All">All segments</option></select>
+      </label>
+      <label>Bedrooms
+        <select id="bedroom-filter"><option value="All">Any bedrooms</option></select>
+      </label>
+      <button id="reset-filters" class="reset-button" type="button">Reset</button>
+    </section>
+
+    <section class="metrics" aria-label="Market summary">
+      <article><span>Median sale price</span><strong id="metric-price">—</strong><small id="metric-price-delta">Filtered market</small></article>
+      <article><span>Median price / sq ft</span><strong id="metric-ppsf">—</strong><small>Usable floor area</small></article>
+      <article><span>Affordability ratio</span><strong id="metric-ratio">—</strong><small>Price ÷ annual income</small></article>
+      <article><span>Records in view</span><strong id="metric-count">—</strong><small id="metric-share">of 10,250 properties</small></article>
+    </section>
+
+    <section class="workspace">
+      <div class="chart-panel">
+        <div class="chart-heading">
+          <div>
+            <p class="eyebrow">Interactive analysis</p>
+            <h2 id="view-title">Median sale price by neighborhood</h2>
+          </div>
+          <div class="view-tabs" role="tablist" aria-label="Analysis views">
+            <button class="active" type="button" role="tab" aria-selected="true" data-view="price">Price</button>
+            <button type="button" role="tab" aria-selected="false" data-view="affordability">Affordability</button>
+            <button type="button" role="tab" aria-selected="false" data-view="ppsf">Price / ft²</button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <div class="axis-label" id="axis-label">Median sale price</div>
+          <div id="bar-chart" class="bar-chart" aria-label="Market comparison bar chart"></div>
+        </div>
+        <p class="chart-caption" id="chart-caption" aria-live="polite"></p>
+      </div>
+
+      <aside class="insights-panel">
+        <p class="eyebrow">Signal check</p>
+        <h2>What stands out</h2>
+        <div id="insights" class="insights" aria-live="polite"></div>
+        <div class="quality-card">
+          <span class="quality-score">98.7%</span>
+          <div><strong>Rows retained</strong><small>after missing-value and outlier handling</small></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="method" aria-labelledby="method-title">
+      <div>
+        <p class="eyebrow">Reusable feature pipeline</p>
+        <h2 id="method-title">Five groups, one explainable view.</h2>
+      </div>
+      <ol>
+        <li><span>01</span><strong>Core</strong><small>type, beds, baths, area</small></li>
+        <li><span>02</span><strong>Pricing</strong><small>sale price, $/ft², segment</small></li>
+        <li><span>03</span><strong>Location</strong><small>neighborhood, region</small></li>
+        <li><span>04</span><strong>Affordability</strong><small>income, ratio, burden</small></li>
+        <li><span>05</span><strong>Quality</strong><small>age, condition, confidence</small></li>
+      </ol>
+    </section>
+  </main>
+
+  <footer>
+    <span>Housing Market Lab</span>
+    <span>Built for transparent, reproducible portfolio analysis.</span>
+  </footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

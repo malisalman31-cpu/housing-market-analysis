@@ -1,0 +1,161 @@
+{
+  "clean_records": 10250,
+  "feature_groups": {
+    "affordability": [
+      "household_income",
+      "affordability_ratio",
+      "affordability_band"
+    ],
+    "core": [
+      "home_type",
+      "bedrooms",
+      "bathrooms",
+      "square_feet"
+    ],
+    "location": [
+      "neighborhood",
+      "region"
+    ],
+    "pricing": [
+      "sale_price",
+      "price_per_sqft",
+      "market_segment"
+    ],
+    "quality": [
+      "property_age",
+      "condition_score",
+      "quality_band"
+    ]
+  },
+  "provenance": "Deterministic synthetic portfolio recreation; the original source dataset was not provided.",
+  "raw_records": 10385,
+  "retention_rate": 0.987,
+  "views": {
+    "affordability": [
+      {
+        "neighborhood": "Santa Monica",
+        "records": 1281,
+        "value": 9.65
+      },
+      {
+        "neighborhood": "Culver City",
+        "records": 1282,
+        "value": 9.15
+      },
+      {
+        "neighborhood": "North Hollywood",
+        "records": 1281,
+        "value": 9.11
+      },
+      {
+        "neighborhood": "Long Beach",
+        "records": 1281,
+        "value": 8.96
+      },
+      {
+        "neighborhood": "Silver Lake",
+        "records": 1281,
+        "value": 8.9
+      },
+      {
+        "neighborhood": "Inglewood",
+        "records": 1281,
+        "value": 8.77
+      },
+      {
+        "neighborhood": "Beverly Hills",
+        "records": 1282,
+        "value": 8.695
+      },
+      {
+        "neighborhood": "Pasadena",
+        "records": 1281,
+        "value": 8.1
+      }
+    ],
+    "ppsf": [
+      {
+        "neighborhood": "Beverly Hills",
+        "records": 1282,
+        "value": 1171.5
+      },
+      {
+        "neighborhood": "Santa Monica",
+        "records": 1281,
+        "value": 947.0
+      },
+      {
+        "neighborhood": "Culver City",
+        "records": 1282,
+        "value": 841.5
+      },
+      {
+        "neighborhood": "Silver Lake",
+        "records": 1281,
+        "value": 791.0
+      },
+      {
+        "neighborhood": "Pasadena",
+        "records": 1281,
+        "value": 646.0
+      },
+      {
+        "neighborhood": "North Hollywood",
+        "records": 1281,
+        "value": 596.0
+      },
+      {
+        "neighborhood": "Long Beach",
+        "records": 1281,
+        "value": 570.0
+      },
+      {
+        "neighborhood": "Inglewood",
+        "records": 1281,
+        "value": 537.0
+      }
+    ],
+    "price": [
+      {
+        "neighborhood": "Beverly Hills",
+        "records": 1282,
+        "value": 1868500.0
+      },
+      {
+        "neighborhood": "Santa Monica",
+        "records": 1281,
+        "value": 1455000.0
+      },
+      {
+        "neighborhood": "Culver City",
+        "records": 1282,
+        "value": 1314000.0
+      },
+      {
+        "neighborhood": "Silver Lake",
+        "records": 1281,
+        "value": 1256000.0
+      },
+      {
+        "neighborhood": "Pasadena",
+        "records": 1281,
+        "value": 998000.0
+      },
+      {
+        "neighborhood": "North Hollywood",
+        "records": 1281,
+        "value": 933000.0
+      },
+      {
+        "neighborhood": "Long Beach",
+        "records": 1281,
+        "value": 865000.0
+      },
+      {
+        "neighborhood": "Inglewood",
+        "records": 1281,
+        "value": 823000.0
+      }
+    ]
+  }
+}
