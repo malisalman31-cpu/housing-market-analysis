@@ -4,3 +4,5 @@ __pycache__/
 node_modules/
 .coverage
 coverage/
+# Built from the small checked-in source extracts before serving or deploying.
+dist/data/housing.json

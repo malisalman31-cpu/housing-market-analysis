@@ -3,112 +3,87 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Explore SQL-modeled price, affordability, and price-per-square-foot patterns across a deterministic 20,500-property California housing dataset." />
+  <meta name="description" content="Compare official Census home values, rents, household incomes and rent burden across all 58 California counties and 1,618 census places. Free downloads with sources and margins of error." />
   <meta name="theme-color" content="#07111f" />
-  <title>California Housing Market Lab</title>
+  <title>California Housing Market Lab · Public Census Data</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307111f'/%3E%3Cpath d='M12 44V27l20-15 20 15v17H38V32H26v12z' fill='%234ee6c1'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <a class="skip-link" href="#analysis">Skip to analysis</a>
   <header class="topbar">
-    <a class="brand" href="#analysis" aria-label="Housing Market Lab home">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span>California Housing <strong>Lab</strong></span>
-    </a>
-    <div class="dataset-note"><span class="pulse"></span><strong>SQL</strong> pipeline · 20,500 records</div>
-    <button class="download-button" id="download-csv" type="button">Download filtered CSV</button>
+    <a class="brand" href="./" aria-label="Housing Market Lab home"><span class="brand-mark" aria-hidden="true"></span><span>California Housing <strong>Lab</strong></span></a>
+    <div class="dataset-note"><span class="pulse"></span>Public data · <strong>ACS 2020–2024</strong></div>
+    <button class="download-button" id="download-csv" type="button" disabled>Download filtered CSV</button>
   </header>
-
   <main id="analysis">
     <section class="intro" aria-labelledby="page-title">
-      <div>
-        <p class="eyebrow">Six regions · Twenty California markets</p>
-        <h1 id="page-title">See where California bends.</h1>
-        <p>Compare sale prices, price per square foot, and household affordability from the Bay Area to San Diego and the Central Valley.</p>
-      </div>
-      <aside class="transparency-card">
-        <span>Portfolio recreation</span>
-        <p>Deterministic synthetic data is cleaned and modeled in SQLite across 20 representative California markets; no original source file was provided.</p>
-      </aside>
+      <div><p class="eyebrow" id="coverage-note">All 58 counties · Across California</p><h1 id="page-title">Real places.<br>Public numbers.</h1>
+        <p>Explore what Californians pay for housing—and how it compares with income. Official Census estimates, open sources, and no invented property records.</p></div>
+      <aside class="transparency-card"><span>Know what you’re comparing</span><p>The 2020–2024 American Community Survey is a five-year snapshot, released January 2026. These are area-level survey estimates—not live listings, appraisals, individual sales, or 2026 prices.</p><a href="#method-title">Read the methodology ↓</a></aside>
     </section>
-
-    <section class="filterbar" aria-label="Market filters">
-      <label>California region
-        <select id="region-filter"><option value="All">All regions</option></select>
-      </label>
-      <label>City / market
-        <select id="neighborhood-filter"><option value="All">All cities &amp; markets</option></select>
-      </label>
-      <label>Home type
-        <select id="type-filter"><option value="All">All home types</option></select>
-      </label>
-      <label>Market segment
-        <select id="segment-filter"><option value="All">All segments</option></select>
-      </label>
-      <label>Bedrooms
-        <select id="bedroom-filter"><option value="All">Any bedrooms</option></select>
-      </label>
-      <button id="reset-filters" class="reset-button" type="button">Reset</button>
-    </section>
-
-    <section class="metrics" aria-label="Market summary">
-      <article><span>Median sale price</span><strong id="metric-price">—</strong><small id="metric-price-delta">Filtered market</small></article>
-      <article><span>Median price / sq ft</span><strong id="metric-ppsf">—</strong><small>Usable floor area</small></article>
-      <article><span>Affordability ratio</span><strong id="metric-ratio">—</strong><small>Price ÷ annual income</small></article>
-      <article><span>Records in view</span><strong id="metric-count">—</strong><small id="metric-share">of 20,500 properties</small></article>
-    </section>
-
-    <section class="workspace">
-      <div class="chart-panel">
-        <div class="chart-heading">
-          <div>
-            <p class="eyebrow">Interactive analysis</p>
-            <h2 id="view-title">Median sale price by California market</h2>
+    <p id="loading-status" role="status">Loading the verified public-data snapshot…</p>
+    <noscript><p>This dashboard needs JavaScript for filtering. <a href="./data/housing.json">Download the public data JSON</a> or visit the <a href="https://github.com/malisalman31-cpu/housing-market-analysis">source repository</a>.</p></noscript>
+    <div id="dashboard" hidden>
+      <section class="filterbar" aria-label="Market filters">
+        <label>Compare areas<select id="geography-filter"><option value="county">Counties</option><option value="place">Cities &amp; census places</option></select></label>
+        <label>Search by name<input id="search-filter" type="search" maxlength="200" placeholder="Try Los Angeles" /></label>
+        <label>Minimum population<input id="population-filter" type="number" min="0" step="1" value="0" /></label>
+        <label>Order exact estimates<select id="sort-filter"><option value="desc">High to low</option><option value="asc">Low to high</option></select></label>
+        <button id="reset-filters" class="reset-button" type="button">Reset</button>
+      </section>
+      <div class="reference-heading"><div><h2 id="reference-label" aria-live="polite">California · statewide reference</h2><p id="reference-population"></p></div><button id="state-reference" type="button" class="reset-button" hidden>Back to California</button></div>
+      <p class="reference-help">Select a chart bar or area name to inspect its estimates. These cards show one geography, never an average of area medians.</p>
+      <section class="metrics" aria-label="Selected geography estimates">
+        <article><span>Median home value</span><strong id="metric-home_value">—</strong><small id="moe-home_value"></small></article>
+        <article><span>Median monthly gross rent</span><strong id="metric-gross_rent">—</strong><small id="moe-gross_rent"></small></article>
+        <article><span>Median rent share of income</span><strong id="metric-rent_burden">—</strong><small id="moe-rent_burden"></small></article>
+        <article><span>Median household income / year</span><strong id="metric-income">—</strong><small id="moe-income"></small></article>
+      </section>
+      <section class="workspace">
+        <div class="chart-panel">
+          <div class="chart-heading"><div><p class="eyebrow" id="results-count"></p><h2 id="view-title">Published estimates</h2></div>
+            <div class="view-tabs" role="group" aria-label="Analysis views">
+              <button class="active" type="button" aria-pressed="true" data-view="home_value">Home value</button>
+              <button type="button" aria-pressed="false" data-view="gross_rent">Rent</button>
+              <button type="button" aria-pressed="false" data-view="rent_burden">Rent burden</button>
+              <button type="button" aria-pressed="false" data-view="income">Income</button>
+            </div>
           </div>
-          <div class="view-tabs" role="tablist" aria-label="Analysis views">
-            <button class="active" type="button" role="tab" aria-selected="true" data-view="price">Price</button>
-            <button type="button" role="tab" aria-selected="false" data-view="affordability">Affordability</button>
-            <button type="button" role="tab" aria-selected="false" data-view="ppsf">Price / ft²</button>
+          <p id="metric-description" class="chart-caption"></p>
+          <div id="bar-chart" class="comparison-chart" aria-label="Area comparison chart"></div>
+          <p class="chart-caption" id="chart-caption" aria-live="polite"></p>
+        </div>
+        <aside class="insights-panel"><p class="eyebrow">Read the uncertainty</p><h2>Context, not a verdict.</h2>
+          <div class="insights">
+            <div class="insight"><span>Published estimates</span><strong id="coverage-exact"></strong><small>Eligible for this chart. Sampling error means nearby values may not differ meaningfully.</small></div>
+            <div class="insight"><span>Open-ended intervals</span><strong id="coverage-bounded"></strong><small>Shown as ≥ or ≤ in the table. A capped value is not a precise price or rank.</small></div>
+            <div class="insight"><span>Unavailable estimates</span><strong id="coverage-missing"></strong><small>Kept as missing, not replaced with zero. Small communities may have limited samples.</small></div>
           </div>
+          <p class="chart-caption">± figures are published margins of error at 90% confidence. They are not forecasts or a guarantee of current prices.</p>
+        </aside>
+      </section>
+      <section class="table-panel" aria-labelledby="table-title">
+        <div class="table-heading"><div><p class="eyebrow">Explore every area</p><h2 id="table-title">The numbers behind the view</h2></div><a href="./data/housing.json">Full dataset JSON ↗</a></div>
+        <p class="chart-caption">Sorted by the selected metric. Bounded values follow exact estimates; unavailable values appear last. CDP means census-designated place.</p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable area estimates table">
+          <table><thead><tr><th scope="col">Area</th><th scope="col">Home value</th><th scope="col">Monthly gross rent</th><th scope="col">Rent share of income</th><th scope="col">Annual household income</th><th scope="col">Population</th></tr></thead><tbody id="table-body"></tbody></table>
         </div>
-        <div class="chart-wrap">
-          <div class="axis-label" id="axis-label">Median sale price</div>
-          <div id="bar-chart" class="bar-chart" aria-label="Market comparison bar chart"></div>
-        </div>
-        <p class="chart-caption" id="chart-caption" aria-live="polite"></p>
+        <div class="pagination"><button id="previous-page" type="button" class="reset-button">Previous</button><span id="page-label" aria-live="polite"></span><button id="next-page" type="button" class="reset-button">Next</button></div>
+      </section>
+    </div>
+    <section class="method public-method" aria-labelledby="method-title">
+      <div><p class="eyebrow">Open source · Python + SQL</p><h2 id="method-title">Trace every number.</h2><p>Independent project. Not affiliated with the U.S. Census Bureau.</p></div>
+      <div class="method-copy">
+        <p><strong>Source:</strong> U.S. Census Bureau, <a href="https://www.census.gov/programs-surveys/acs/data/summary-file.2024.html">2020–2024 ACS 5-year Summary File</a>. All 58 counties, 1,618 census places and California’s own statewide estimate. Snapshot retrieved <span id="source-date">October 2026</span>. Updates are published snapshots, not live feeds.</p>
+        <p><strong>What is measured:</strong> <a href="https://data.census.gov/table/ACSDT5Y2024.B25077">B25077</a> owner-occupied home values; <a href="https://data.census.gov/table/ACSDT5Y2024.B25064">B25064</a> gross rents including utilities; <a href="https://data.census.gov/table/ACSDT5Y2024.B25071">B25071</a> median rent-to-income percentages; <a href="https://data.census.gov/table/ACSDT5Y2024.B19013">B19013</a> annual household incomes in 2024 dollars; <a href="https://data.census.gov/table/ACSDT5Y2024.B01003">B01003</a> population.</p>
+        <p><strong>What is not measured:</strong> Sale transactions, asking rents, home size, bedrooms or investment returns. The former simulated records and unsupported price-per-square-foot calculations have been removed. County and place data overlap; do not sum them. Incorporated cities and unincorporated census places appear together.</p>
+        <p><strong>Quality:</strong> Python checks source-file hashes and geography coverage. SQLite joins by Census GEO_ID and handles <a href="https://www.census.gov/data/developers/data-sets/acs-1year/notes-on-acs-estimate-and-annotation-values.html">Census special values</a>. The browser displays that exact output. No imputation, median-of-medians, or household-level inference.</p>
+        <p><a href="https://github.com/malisalman31-cpu/housing-market-analysis">Public code, raw extracts &amp; reproducible tests ↗</a></p>
       </div>
-
-      <aside class="insights-panel">
-        <p class="eyebrow">Signal check</p>
-        <h2>What stands out</h2>
-        <div id="insights" class="insights" aria-live="polite"></div>
-        <div class="quality-card">
-          <span class="quality-score">98.7%</span>
-          <div><strong>Rows retained</strong><small>after missing-value and outlier handling</small></div>
-        </div>
-      </aside>
-    </section>
-
-    <section class="method" aria-labelledby="method-title">
-      <div>
-        <p class="eyebrow">SQL feature pipeline</p>
-        <h2 id="method-title">Five groups, one explainable SQL model.</h2>
-      </div>
-      <ol>
-        <li><span>01</span><strong>Core</strong><small>type, beds, baths, area</small></li>
-        <li><span>02</span><strong>Pricing</strong><small>sale price, $/ft², segment</small></li>
-        <li><span>03</span><strong>Location</strong><small>neighborhood, region</small></li>
-        <li><span>04</span><strong>Affordability</strong><small>income, ratio, burden</small></li>
-        <li><span>05</span><strong>Quality</strong><small>age, condition, confidence</small></li>
-      </ol>
     </section>
   </main>
-
-  <footer>
-    <span>California Housing Market Lab</span>
-    <span>SQLite analysis · transparent synthetic data.</span>
-  </footer>
+  <footer><span>California Housing Market Lab</span><span>Official public statistics · No personal records collected.</span></footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="./app.js"></script>
 </body>

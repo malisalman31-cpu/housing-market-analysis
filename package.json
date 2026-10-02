@@ -4,8 +4,11 @@
   "private": false,
   "type": "module",
   "scripts": {
+    "prestart": "python3 analysis/build_dashboard_data.py",
     "start": "node scripts/serve.mjs",
     "build:data": "python3 analysis/build_dashboard_data.py",
+    "fetch:data": "python3 analysis/fetch_public_data.py",
+    "test:browser": "node scripts/browser-check.mjs",
     "test": "node --test && python3 -m unittest discover -s tests -p 'test_*.py'",
     "test:coverage": "node --test --experimental-test-coverage",
     "check": "node --check dist/analysis.js && node --check dist/app.js && node --check dist/webmcp.js && node --test && python3 -m unittest discover -s tests -p 'test_*.py' && python3 analysis/build_dashboard_data.py --check"

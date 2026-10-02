@@ -1,209 +1,104 @@
-"""SQL-first Housing Market Lab pipeline with a small Python orchestrator."""
+"""Official ACS California extract -> validated SQLite views -> one browser dataset."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-import random
+import csv
+import hashlib
+import json
+import math
 import sqlite3
+from pathlib import Path
 
-
-NEIGHBORHOODS = [
-    ("San Francisco", "Bay Area", 1180, 184_000),
-    ("Oakland", "Bay Area", 710, 126_000),
-    ("San Jose", "Bay Area", 890, 171_000),
-    ("Palo Alto", "Bay Area", 1420, 225_000),
-    ("Los Angeles", "Greater Los Angeles", 760, 124_000),
-    ("Santa Monica", "Greater Los Angeles", 980, 151_000),
-    ("Pasadena", "Greater Los Angeles", 650, 116_000),
-    ("Long Beach", "Greater Los Angeles", 565, 96_000),
-    ("San Diego", "San Diego County", 720, 121_000),
-    ("La Jolla", "San Diego County", 1040, 166_000),
-    ("Chula Vista", "San Diego County", 510, 93_000),
-    ("Sacramento", "Central Valley", 390, 88_000),
-    ("Fresno", "Central Valley", 275, 72_000),
-    ("Bakersfield", "Central Valley", 245, 69_000),
-    ("Stockton", "Central Valley", 310, 76_000),
-    ("Santa Barbara", "Central Coast", 930, 134_000),
-    ("San Luis Obispo", "Central Coast", 690, 105_000),
-    ("Monterey", "Central Coast", 745, 111_000),
-    ("Riverside", "Inland Empire", 385, 86_000),
-    ("Palm Springs", "Inland Empire", 455, 82_000),
-]
-
-HOME_TYPES = [
-    ("Condo", 0.94, 850),
-    ("Single-family", 1.12, 1580),
-    ("Townhome", 1.02, 1240),
-    ("Multi-family", 1.07, 1840),
-]
-
-FEATURE_GROUPS = {
-    "core": ["home_type", "bedrooms", "bathrooms", "square_feet"],
-    "pricing": ["sale_price", "price_per_sqft", "market_segment"],
-    "location": ["neighborhood", "region"],
-    "affordability": ["household_income", "affordability_ratio", "affordability_band"],
-    "quality": ["property_age", "condition_score", "quality_band"],
+ROOT = Path(__file__).parent
+DATA = ROOT / "data"
+METRICS = {
+    "home_value": {"table": "B25077", "label": "Median home value", "unit": "USD",
+                   "universe": "Owner-occupied housing units", "codes": (9999, 10000, 2000001, 2000000)},
+    "gross_rent": {"table": "B25064", "label": "Median monthly gross rent", "unit": "USD/month",
+                  "universe": "Renter-occupied housing units paying cash rent", "codes": (99, 100, 3501, 3500)},
+    "income": {"table": "B19013", "label": "Median household income", "unit": "USD/year",
+               "universe": "Households; past 12 months, in 2024 inflation-adjusted dollars", "codes": (2499, 2500, 250001, 250000)},
+    "rent_burden": {"table": "B25071", "label": "Median rent share of income", "unit": "percent",
+                    "universe": "Renter-occupied housing units paying cash rent; computable income ratios", "codes": (9, 10, 51, 50)},
+    "population": {"table": "B01003", "label": "Population", "unit": "people",
+                   "universe": "Total population", "codes": (None, None, None, None)},
 }
 
-ROOT = Path(__file__).resolve().parent
-SCHEMA = ROOT / "schema.sql"
-TRANSFORMATIONS = ROOT / "queries.sql"
-RAW_COLUMNS = (
-    "id", "neighborhood", "region", "home_type", "bedrooms", "bathrooms",
-    "square_feet", "sale_price", "household_income", "property_age",
-    "condition_score",
-)
+
+def read_rows(path: Path) -> list[dict]:
+    with path.open(encoding="utf-8-sig", newline="") as stream:
+        return list(csv.DictReader(stream, delimiter="|"))
 
 
-@dataclass(frozen=True)
-class PipelineResult:
-    raw: list[dict]
-    clean: list[dict]
-    views: dict[str, list[dict]]
-    validation: dict
+def verify_snapshot(directory: Path = DATA) -> dict:
+    manifest = json.loads((directory / "manifest.json").read_text())
+    expected = {"geography.txt", *(f'{m["table"]}.txt' for m in METRICS.values())}
+    if set(manifest["files"]) != expected:
+        raise ValueError("Snapshot source files do not match the configured tables")
+    for filename, source in manifest["files"].items():
+        content = (directory / filename).read_bytes()
+        if hashlib.sha256(content).hexdigest() != source["extract_sha256"]:
+            raise ValueError(f"Checksum mismatch: {filename}")
+    return manifest
 
 
-def generate_raw_data(count: int = 20_770, seed: int = 202_503) -> list[dict]:
-    """Create deterministic input rows; SQL performs every analytical transform."""
-    if count < 271:
-        raise ValueError("count must be at least 271 so quality fixtures can be included")
-
-    rng = random.Random(seed)
-    rows: list[dict] = []
-    for index in range(count):
-        neighborhood, region, base_ppsf, base_income = NEIGHBORHOODS[index % len(NEIGHBORHOODS)]
-        home_type, type_multiplier, base_sqft = HOME_TYPES[(index * 3 + rng.randrange(len(HOME_TYPES))) % len(HOME_TYPES)]
-        bedrooms = min(5, max(1, round(base_sqft / 500 + rng.random() * 1.8 - 0.65)))
-        bathrooms = max(1, round(bedrooms * 0.62 + rng.random() * 1.15, 1))
-        square_feet = max(480, round(base_sqft * (0.72 + rng.random() * 0.67) + bedrooms * 35))
-        property_age = round(2 + rng.random() * 88)
-        condition_score = round(62 + rng.random() * 36, 1)
-        price_per_sqft = round(base_ppsf * type_multiplier * (0.84 + rng.random() * 0.34) * (1 + (condition_score - 80) / 450))
-        sale_price = round(price_per_sqft * square_feet / 1000) * 1000
-        household_income = round(base_income * (0.72 + rng.random() * 0.72) / 1000) * 1000
-        if index < 160:
-            sale_price = None
-        elif index < 270:
-            square_feet = -1
-        rows.append(
-            {
-                "id": f"CA-{index + 1:05d}",
-                "neighborhood": neighborhood,
-                "region": region,
-                "home_type": home_type,
-                "bedrooms": bedrooms,
-                "bathrooms": bathrooms,
-                "square_feet": square_feet,
-                "sale_price": sale_price,
-                "household_income": household_income,
-                "property_age": property_age,
-                "condition_score": condition_score,
-            }
-        )
-    return rows
-
-
-def create_database(rows: list[dict]) -> sqlite3.Connection:
-    """Load raw rows and execute the checked-in SQL model in an isolated database."""
-    missing = set(RAW_COLUMNS).difference(rows[0] if rows else {})
-    if missing:
-        raise ValueError(f"Missing required columns: {', '.join(sorted(missing))}")
-
+def create_database(directory: Path = DATA) -> sqlite3.Connection:
+    verify_snapshot(directory)
     connection = sqlite3.connect(":memory:")
     connection.row_factory = sqlite3.Row
-    connection.executescript(SCHEMA.read_text())
-    connection.executemany(
-        """
-        INSERT INTO raw_properties (
-            id, neighborhood, region, home_type, bedrooms, bathrooms, square_feet,
-            sale_price, household_income, property_age, condition_score
-        ) VALUES (
-            :id, :neighborhood, :region, :home_type, :bedrooms, :bathrooms, :square_feet,
-            :sale_price, :household_income, :property_age, :condition_score
-        )
-        """,
-        rows,
-    )
-    connection.executescript(TRANSFORMATIONS.read_text())
+    connection.executescript((ROOT / "schema.sql").read_text())
+    kinds = {"040": "state", "050": "county", "160": "place"}
+    geographies = read_rows(directory / "geography.txt")
+    for geo in geographies:
+        if geo["STATE"] != "06" or geo["COMPONENT"] != "00" or geo["SUMLEVEL"] not in kinds:
+            raise ValueError("Unexpected geography in California extract")
+        connection.execute("INSERT INTO geographies VALUES (?, ?, ?)",
+                           (geo["GEO_ID"], geo["NAME"].removesuffix(", California"), kinds[geo["SUMLEVEL"]]))
+    geo_ids = {g["GEO_ID"] for g in geographies}
+    for metric, definition in METRICS.items():
+        table = definition["table"]
+        connection.execute("INSERT INTO metric_definitions VALUES (?, ?, ?, ?, ?, ?)",
+                           (metric, table, *definition["codes"]))
+        rows = read_rows(directory / f"{table}.txt")
+        if {row["GEO_ID"] for row in rows} != geo_ids or len(rows) != len(geo_ids):
+            raise ValueError(f"Missing or duplicate geographic joins in {table}")
+        for row in rows:
+            values = (float(row[f"{table}_E001"]), float(row[f"{table}_M001"]))
+            if not all(math.isfinite(value) for value in values):
+                raise ValueError(f"Non-finite Census value in {table}")
+            connection.execute("INSERT INTO raw_estimates VALUES (?, ?, ?, ?)",
+                               (row["GEO_ID"], metric, *values))
+    connection.executescript((ROOT / "queries.sql").read_text())
+    connection.commit()
     return connection
 
 
-def fetch_clean_rows(connection: sqlite3.Connection) -> list[dict]:
-    return [dict(row) for row in connection.execute("SELECT * FROM clean_properties ORDER BY id")]
-
-
-def median_view(connection: sqlite3.Connection, metric: str) -> list[dict]:
-    """Compute exact grouped medians using SQLite window functions."""
-    allowed_metrics = {"sale_price", "affordability_ratio", "price_per_sqft"}
-    if metric not in allowed_metrics:
-        raise ValueError(f"Unsupported metric: {metric}")
-    query = f"""
-        WITH ranked AS (
-            SELECT
-                neighborhood,
-                {metric} AS metric,
-                ROW_NUMBER() OVER (PARTITION BY neighborhood ORDER BY {metric}) AS row_number,
-                COUNT(*) OVER (PARTITION BY neighborhood) AS records
-            FROM clean_properties
-        )
-        SELECT neighborhood, AVG(metric) AS value, MAX(records) AS records
-        FROM ranked
-        WHERE row_number IN ((records + 1) / 2, (records + 2) / 2)
-        GROUP BY neighborhood
-        ORDER BY value DESC, neighborhood ASC
-    """
-    return [dict(row) for row in connection.execute(query)]
-
-
-def build_market_views(connection: sqlite3.Connection) -> dict[str, list[dict]]:
-    return {
-        "price": median_view(connection, "sale_price"),
-        "affordability": median_view(connection, "affordability_ratio"),
-        "ppsf": median_view(connection, "price_per_sqft"),
-    }
-
-
-def validate_sql_pipeline(connection: sqlite3.Connection) -> dict:
-    """Expose row-quality, index, and query-plan checks as a reviewable artifact."""
-    raw_records = connection.execute("SELECT COUNT(*) FROM raw_properties").fetchone()[0]
-    clean_records = connection.execute("SELECT COUNT(*) FROM clean_properties").fetchone()[0]
-    index_names = {
-        row[0]
-        for row in connection.execute(
-            "SELECT name FROM sqlite_schema WHERE type = 'index' AND name LIKE 'idx_clean_%'"
-        )
-    }
-    expected_indexes = {
-        "idx_clean_region_neighborhood",
-        "idx_clean_home_type",
-        "idx_clean_market_segment",
-        "idx_clean_bedrooms",
-    }
-    plan_rows = connection.execute(
-        "EXPLAIN QUERY PLAN SELECT * FROM clean_properties WHERE region = ? AND neighborhood = ?",
-        ("Bay Area", "San Francisco"),
-    )
-    query_plan = " | ".join(str(row[3]) for row in plan_rows)
-    return {
-        "raw_records": raw_records,
-        "clean_records": clean_records,
-        "invalid_rows_removed": raw_records - clean_records,
-        "indexes": sorted(index_names),
-        "all_indexes_present": expected_indexes.issubset(index_names),
-        "filter_query_uses_index": "idx_clean_region_neighborhood" in query_plan,
-        "filter_query_plan": query_plan,
-    }
-
-
-def run_pipeline(count: int = 20_770, seed: int = 202_503) -> PipelineResult:
-    raw = generate_raw_data(count=count, seed=seed)
-    connection = create_database(raw)
+def build_payload(directory: Path = DATA) -> dict:
+    manifest = verify_snapshot(directory)
+    connection = create_database(directory)
     try:
-        return PipelineResult(
-            raw=raw,
-            clean=fetch_clean_rows(connection),
-            views=build_market_views(connection),
-            validation=validate_sql_pipeline(connection),
-        )
+        counts = {row["geography"]: row["count"] for row in connection.execute(
+            "SELECT geography, COUNT(*) AS count FROM geographies GROUP BY geography")}
+        if counts.get("county") != 58 or counts.get("state") != 1 or counts.get("place", 0) < 1500:
+            raise ValueError(f"Incomplete statewide coverage: {counts}")
+        records = {row["geo_id"]: {**dict(row), "metrics": {}} for row in connection.execute(
+            "SELECT * FROM geographies ORDER BY geography, name, geo_id")}
+        for row in connection.execute("SELECT * FROM estimates ORDER BY geo_id, metric"):
+            value = dict(row)
+            geo_id, metric = value.pop("geo_id"), value.pop("metric")
+            records[geo_id]["metrics"][metric] = value
+        if any(len(row["metrics"]) != len(METRICS) for row in records.values()):
+            raise ValueError("Incomplete metric coverage")
+        metadata = {key: {k: v for k, v in definition.items() if k != "codes"}
+                    for key, definition in METRICS.items()}
+        return {"schema_version": 2, "source": manifest, "counts": counts, "metrics": metadata,
+                "records": list(records.values())}
     finally:
         connection.close()
+
+
+def build_summary(payload: dict) -> dict:
+    return {"source": payload["source"]["dataset"], "counts": payload["counts"],
+            "state": next(row for row in payload["records"] if row["geography"] == "state"),
+            "quality": {metric: {status: sum(r["metrics"][metric]["status"] == status for r in payload["records"])
+                                 for status in ("estimate", "at_least", "at_most", "unavailable")}
+                        for metric in METRICS}}

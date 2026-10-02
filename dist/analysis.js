@@ -1,167 +1,101 @@
-export const NEIGHBORHOODS = [
-  { name: "San Francisco", region: "Bay Area", ppsf: 1180, income: 184000 },
-  { name: "Oakland", region: "Bay Area", ppsf: 710, income: 126000 },
-  { name: "San Jose", region: "Bay Area", ppsf: 890, income: 171000 },
-  { name: "Palo Alto", region: "Bay Area", ppsf: 1420, income: 225000 },
-  { name: "Los Angeles", region: "Greater Los Angeles", ppsf: 760, income: 124000 },
-  { name: "Santa Monica", region: "Greater Los Angeles", ppsf: 980, income: 151000 },
-  { name: "Pasadena", region: "Greater Los Angeles", ppsf: 650, income: 116000 },
-  { name: "Long Beach", region: "Greater Los Angeles", ppsf: 565, income: 96000 },
-  { name: "San Diego", region: "San Diego County", ppsf: 720, income: 121000 },
-  { name: "La Jolla", region: "San Diego County", ppsf: 1040, income: 166000 },
-  { name: "Chula Vista", region: "San Diego County", ppsf: 510, income: 93000 },
-  { name: "Sacramento", region: "Central Valley", ppsf: 390, income: 88000 },
-  { name: "Fresno", region: "Central Valley", ppsf: 275, income: 72000 },
-  { name: "Bakersfield", region: "Central Valley", ppsf: 245, income: 69000 },
-  { name: "Stockton", region: "Central Valley", ppsf: 310, income: 76000 },
-  { name: "Santa Barbara", region: "Central Coast", ppsf: 930, income: 134000 },
-  { name: "San Luis Obispo", region: "Central Coast", ppsf: 690, income: 105000 },
-  { name: "Monterey", region: "Central Coast", ppsf: 745, income: 111000 },
-  { name: "Riverside", region: "Inland Empire", ppsf: 385, income: 86000 },
-  { name: "Palm Springs", region: "Inland Empire", ppsf: 455, income: 82000 },
-];
+export const VIEWS = Object.freeze({
+  home_value: { label: "Median home value", short: "Home value", unit: "USD", table: "B25077", explanation: "Owner-reported value of owner-occupied homes. Not sale prices or listings." },
+  gross_rent: { label: "Median monthly gross rent", short: "Rent", unit: "USD/month", table: "B25064", explanation: "Cash rent plus estimated utilities for renter-occupied homes paying cash rent." },
+  rent_burden: { label: "Median rent share of income", short: "Rent burden", unit: "percent", table: "B25071", explanation: "Median household-level gross-rent-to-income percentage. Not the percentage of renters who are burdened." },
+  income: { label: "Median household income", short: "Income", unit: "USD/year", table: "B19013", explanation: "Annual household income in 2024 inflation-adjusted dollars; includes all households, not only renters." },
+});
+export const DEFAULT_FILTERS = Object.freeze({ geography: "county", search: "", minPopulation: 0, sort: "desc", view: "home_value" });
+export const METRIC_KEYS = [...Object.keys(VIEWS), "population"];
 
-export const HOME_TYPES = [
-  { name: "Condo", multiplier: .94, sqft: 850 },
-  { name: "Single-family", multiplier: 1.12, sqft: 1580 },
-  { name: "Townhome", multiplier: 1.02, sqft: 1240 },
-  { name: "Multi-family", multiplier: 1.07, sqft: 1840 },
-];
-
-export const SEGMENTS = ["Entry", "Mid-market", "Premium"];
-
-function mulberry32(seed) {
-  let value = seed >>> 0;
-  return () => {
-    value += 0x6D2B79F5;
-    let result = value;
-    result = Math.imul(result ^ result >>> 15, result | 1);
-    result ^= result + Math.imul(result ^ result >>> 7, result | 61);
-    return ((result ^ result >>> 14) >>> 0) / 4294967296;
-  };
+export function normalizeFilters(input = {}) {
+  const filters = { ...DEFAULT_FILTERS, ...input };
+  if (!["county", "place"].includes(filters.geography)) throw new Error("Choose county or place.");
+  if (!Object.hasOwn(VIEWS, filters.view)) throw new Error("Unknown analysis view.");
+  if (!["asc", "desc"].includes(filters.sort)) throw new Error("Choose asc or desc sorting.");
+  if (typeof filters.search !== "string" || filters.search.length > 200) throw new Error("Search must be at most 200 characters.");
+  filters.minPopulation = Number(filters.minPopulation);
+  if (!Number.isFinite(filters.minPopulation) || filters.minPopulation < 0) throw new Error("Minimum population must be nonnegative.");
+  return filters;
 }
 
-function round(value, precision = 0) {
-  const factor = 10 ** precision;
-  return Math.round(value * factor) / factor;
+export function validateDataset(data) {
+  if (data?.schema_version !== 2 || !Array.isArray(data.records) || !data.source?.dataset) throw new Error("Invalid public-data snapshot.");
+  const ids = new Set();
+  const counts = { state: 0, county: 0, place: 0 };
+  for (const row of data.records) {
+    if (!row.geo_id || ids.has(row.geo_id) || !Object.hasOwn(counts, row.geography)) throw new Error("Invalid or duplicate geography.");
+    ids.add(row.geo_id); counts[row.geography]++;
+    for (const key of METRIC_KEYS) {
+      const m = row.metrics?.[key];
+      if (!m || !["estimate", "at_least", "at_most", "unavailable"].includes(m.status)) throw new Error("Invalid metric.");
+      if (m.status === "unavailable" ? m.value !== null : !Number.isFinite(m.value) || m.value < 0) throw new Error("Invalid estimate.");
+      if (m.moe !== null && (!Number.isFinite(m.moe) || m.moe < 0)) throw new Error("Invalid margin of error.");
+    }
+  }
+  if (counts.state !== 1 || counts.county !== 58 || counts.place < 1500 ||
+      Object.keys(counts).some(key => counts[key] !== data.counts?.[key])) throw new Error("Incomplete California coverage.");
+  return data;
 }
 
-export function buildDataset(count = 20500, seed = 202503) {
-  if (!Number.isInteger(count) || count < 1) throw new Error("count must be a positive integer");
-  const random = mulberry32(seed);
-  return Array.from({ length: count }, (_, index) => {
-    const neighborhood = NEIGHBORHOODS[index % NEIGHBORHOODS.length];
-    const homeType = HOME_TYPES[(index * 3 + Math.floor(random() * HOME_TYPES.length)) % HOME_TYPES.length];
-    const bedrooms = Math.min(5, Math.max(1, Math.round((homeType.sqft / 500) + random() * 1.8 - .65)));
-    const bathrooms = Math.max(1, round(bedrooms * .62 + random() * 1.15, 1));
-    const squareFeet = Math.max(480, Math.round(homeType.sqft * (.72 + random() * .67) + bedrooms * 35));
-    const propertyAge = Math.round(2 + random() * 88);
-    const conditionScore = round(62 + random() * 36, 1);
-    const pricePerSqft = Math.round(neighborhood.ppsf * homeType.multiplier * (.84 + random() * .34) * (1 + (conditionScore - 80) / 450));
-    const salePrice = Math.round(pricePerSqft * squareFeet / 1000) * 1000;
-    const householdIncome = Math.round(neighborhood.income * (.72 + random() * .72) / 1000) * 1000;
-    const affordabilityRatio = round(salePrice / householdIncome, 2);
-    const segment = salePrice < 750000 ? "Entry" : salePrice < 1500000 ? "Mid-market" : "Premium";
-    return {
-      id: `CA-${String(index + 1).padStart(5, "0")}`,
-      neighborhood: neighborhood.name,
-      region: neighborhood.region,
-      homeType: homeType.name,
-      segment,
-      bedrooms,
-      bathrooms,
-      squareFeet,
-      salePrice,
-      pricePerSqft,
-      householdIncome,
-      affordabilityRatio,
-      propertyAge,
-      conditionScore,
-    };
+export function filterRecords(records, input = {}) {
+  const f = normalizeFilters(input);
+  const search = f.search.trim().toLocaleLowerCase("en-US");
+  return records.filter(row => row.geography === f.geography && row.name.toLocaleLowerCase("en-US").includes(search) &&
+    (f.minPopulation === 0 || (Number.isFinite(row.metrics.population.value) && row.metrics.population.value >= f.minPopulation)));
+}
+
+export function sortRecords(records, view = "home_value", sort = "desc") {
+  normalizeFilters({ view, sort });
+  return [...records].sort((a, b) => {
+    const x = a.metrics[view], y = b.metrics[view];
+    // A bound is not an exact estimate: place it after exact estimates, before unavailable.
+    const order = { estimate: 0, at_least: 1, at_most: 1, unavailable: 2 };
+    const category = order[x.status] - order[y.status];
+    if (category) return category;
+    const difference = x.value === null || y.value === null ? 0 : (x.value - y.value) * (sort === "desc" ? -1 : 1);
+    return difference || a.name.localeCompare(b.name, "en-US") || a.geo_id.localeCompare(b.geo_id);
   });
 }
 
-export function median(values) {
-  if (!Array.isArray(values) || values.length === 0) return null;
-  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
-  if (!sorted.length) return null;
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+export function comparison(records, view = "home_value", sort = "desc", limit = 12) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 2000) throw new Error("Invalid comparison limit.");
+  const sorted = sortRecords(records, view, sort);
+  const exact = sorted.filter(row => row.metrics[view].status === "estimate");
+  return { rows: exact.slice(0, limit), exact: exact.length,
+    bounded: records.filter(row => ["at_least", "at_most"].includes(row.metrics[view].status)).length,
+    unavailable: records.filter(row => row.metrics[view].status === "unavailable").length };
 }
 
-export function filterRecords(records, filters = {}) {
-  const { region = "All", neighborhood = "All", homeType = "All", segment = "All", bedrooms = "All" } = filters;
-  return records.filter((record) =>
-    (region === "All" || record.region === region) &&
-    (neighborhood === "All" || record.neighborhood === neighborhood) &&
-    (homeType === "All" || record.homeType === homeType) &&
-    (segment === "All" || record.segment === segment) &&
-    (bedrooms === "All" || record.bedrooms === Number(bedrooms))
-  );
+export function formatValue(value, metric) {
+  if (!Number.isFinite(value)) return "—";
+  if (metric === "rent_burden") return value.toFixed(1) + "%";
+  if (metric === "population") return value.toLocaleString("en-US");
+  return value.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
-export function summarize(records, total = records.length) {
-  return {
-    count: records.length,
-    share: total ? records.length / total : 0,
-    medianPrice: median(records.map((record) => record.salePrice)),
-    medianPpsf: median(records.map((record) => record.pricePerSqft)),
-    medianRatio: median(records.map((record) => record.affordabilityRatio)),
+export function formatMetric(metric, key) {
+  if (!metric || metric.status === "unavailable") return "Not available";
+  return ({ at_least: "≥ ", at_most: "≤ " }[metric.status] || "") + formatValue(metric.value, key);
+}
+
+export function formatMoe(metric, key) {
+  if (metric.status === "unavailable") return "Insufficient or unavailable data";
+  if (["at_least", "at_most"].includes(metric.status)) return "Open-ended interval · no MOE";
+  if (metric.moe_status === "controlled") return "Population-controlled · no sampling MOE";
+  if (metric.moe === null) return "Margin of error unavailable";
+  return "± " + (key === "rent_burden" ? metric.moe.toFixed(1) + " percentage points" : formatValue(metric.moe, key)) + " · 90% confidence";
+}
+
+export function toCsv(records, source) {
+  const columns = ["geo_id", "name", "geography", "period", "source_url",
+    ...METRIC_KEYS.flatMap(key => [key, key + "_status", key + "_moe90", key + "_moe_status", key + "_raw_estimate", key + "_raw_moe"])];
+  const quote = value => {
+    let text = value === null || value === undefined ? "" : String(value);
+    if (typeof value === "string" && /^[=+\-@\t\r]/.test(text)) text = "'" + text;
+    return '"' + text.replaceAll('"', '""') + '"';
   };
-}
-
-const VIEW_CONFIG = {
-  price: { key: "salePrice", label: "Median sale price", title: "Median sale price by California market", better: "high" },
-  affordability: { key: "affordabilityRatio", label: "Price ÷ annual income", title: "Affordability burden by California market", better: "low" },
-  ppsf: { key: "pricePerSqft", label: "Median price per square foot", title: "Median price per square foot by California market", better: "high" },
-};
-
-export function groupMarketView(records, view = "price") {
-  const config = VIEW_CONFIG[view];
-  if (!config) throw new Error(`Unknown market view: ${view}`);
-  const groups = new Map();
-  for (const record of records) {
-    if (!groups.has(record.neighborhood)) groups.set(record.neighborhood, []);
-    groups.get(record.neighborhood).push(record[config.key]);
-  }
-  const values = [...groups.entries()].map(([name, group]) => ({ name, value: median(group), count: group.length }));
-  values.sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
-  return { ...config, view, values };
-}
-
-export function buildInsights(records, view = "price") {
-  if (!records.length) return [];
-  const grouped = groupMarketView(records, view).values;
-  const highest = grouped[0];
-  const lowest = grouped[grouped.length - 1];
-  const typeGroups = new Map();
-  for (const record of records) {
-    if (!typeGroups.has(record.homeType)) typeGroups.set(record.homeType, []);
-    typeGroups.get(record.homeType).push(record.pricePerSqft);
-  }
-  const valueType = [...typeGroups].map(([name, values]) => ({ name, value: median(values) })).sort((a, b) => a.value - b.value)[0];
-  return [
-    { label: view === "affordability" ? "Highest burden" : "Market leader", title: highest.name, detail: `${highest.count.toLocaleString()} properties support this comparison.` },
-    { label: view === "affordability" ? "Lowest burden" : "Lower end", title: lowest.name, detail: `The filtered spread is ${formatViewValue(highest.value - lowest.value, view)}.` },
-    { label: "Relative value", title: valueType.name, detail: "Lowest median price per square foot among visible housing types." },
-  ];
-}
-
-export function formatCurrency(value, compact = false) {
-  if (!Number.isFinite(value)) return "—";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: compact ? 1 : 0, notation: compact ? "compact" : "standard" }).format(value);
-}
-
-export function formatViewValue(value, view) {
-  if (!Number.isFinite(value)) return "—";
-  if (view === "affordability") return `${value.toFixed(1)}×`;
-  if (view === "ppsf") return `${formatCurrency(value)}/ft²`;
-  return formatCurrency(value, true);
-}
-
-export function toCsv(records) {
-  const headers = ["id", "neighborhood", "region", "home_type", "market_segment", "bedrooms", "bathrooms", "square_feet", "sale_price", "price_per_sqft", "household_income", "affordability_ratio", "property_age", "condition_score"];
-  const rows = records.map((record) => [record.id, record.neighborhood, record.region, record.homeType, record.segment, record.bedrooms, record.bathrooms, record.squareFeet, record.salePrice, record.pricePerSqft, record.householdIncome, record.affordabilityRatio, record.propertyAge, record.conditionScore]);
-  const escape = (value) => `"${String(value).replaceAll('"', '""')}"`;
-  return [headers, ...rows].map((row) => row.map(escape).join(",")).join("\n");
+  return [columns, ...records.map(row => [row.geo_id, row.name, row.geography, source.dataset, source.source_page,
+    ...METRIC_KEYS.flatMap(key => {
+      const m = row.metrics[key]; return [m.value, m.status, m.moe, m.moe_status, m.raw_estimate, m.raw_moe];
+    })])].map(row => row.map(quote).join(",")).join("\r\n");
 }

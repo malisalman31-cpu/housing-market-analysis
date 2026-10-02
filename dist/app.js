@@ -1,81 +1,157 @@
-import { buildDataset, buildInsights, filterRecords, formatCurrency, formatViewValue, groupMarketView, HOME_TYPES, NEIGHBORHOODS, SEGMENTS, summarize, toCsv } from "./analysis.js";
+import { VIEWS, DEFAULT_FILTERS, normalizeFilters, validateDataset, filterRecords, sortRecords, comparison, formatMetric, formatMoe, toCsv } from "./analysis.js";
 import { registerHousingTools } from "./webmcp.js";
 
-const records = buildDataset();
-const elements = {
-  region: document.querySelector("#region-filter"), neighborhood: document.querySelector("#neighborhood-filter"), type: document.querySelector("#type-filter"), segment: document.querySelector("#segment-filter"), bedrooms: document.querySelector("#bedroom-filter"),
-  metricPrice: document.querySelector("#metric-price"), metricPpsf: document.querySelector("#metric-ppsf"), metricRatio: document.querySelector("#metric-ratio"), metricCount: document.querySelector("#metric-count"), metricShare: document.querySelector("#metric-share"),
-  title: document.querySelector("#view-title"), axis: document.querySelector("#axis-label"), chart: document.querySelector("#bar-chart"), caption: document.querySelector("#chart-caption"), insights: document.querySelector("#insights"), tabs: document.querySelector(".view-tabs"), toast: document.querySelector("#toast"),
+const $ = id => document.getElementById(id);
+let data, filters = { ...DEFAULT_FILTERS }, page = 0, selectedId = "0400000US06";
+const pageSize = 20;
+const controls = ["geography-filter", "search-filter", "population-filter", "sort-filter", "reset-filters", "download-csv"];
+const element = (tag, text, className) => {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (className) node.className = className;
+  return node;
 };
-let view = "price";
-let filtered = records;
-let toastTimer;
-
-function addOptions(select, values) { for (const value of values) select.add(new Option(value, value)); }
-addOptions(elements.region, [...new Set(NEIGHBORHOODS.map(({ region }) => region))]);
-addOptions(elements.neighborhood, NEIGHBORHOODS.map(({ name }) => name));
-addOptions(elements.type, HOME_TYPES.map(({ name }) => name));
-addOptions(elements.segment, SEGMENTS);
-addOptions(elements.bedrooms, [1, 2, 3, 4, 5]);
-
-function currentFilters() { return { region: elements.region.value, neighborhood: elements.neighborhood.value, homeType: elements.type.value, segment: elements.segment.value, bedrooms: elements.bedrooms.value }; }
-function showToast(message) { clearTimeout(toastTimer); elements.toast.textContent = message; elements.toast.classList.add("show"); toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 2400); }
-
-function render() {
-  filtered = filterRecords(records, currentFilters());
-  const summary = summarize(filtered, records.length);
-  elements.metricPrice.textContent = formatCurrency(summary.medianPrice, true);
-  elements.metricPpsf.textContent = summary.medianPpsf == null ? "—" : formatCurrency(summary.medianPpsf);
-  elements.metricRatio.textContent = summary.medianRatio == null ? "—" : `${summary.medianRatio.toFixed(1)}×`;
-  elements.metricCount.textContent = summary.count.toLocaleString();
-  elements.metricShare.textContent = `${(summary.share * 100).toFixed(1)}% of ${records.length.toLocaleString()} properties`;
-  const market = groupMarketView(filtered, view);
-  elements.title.textContent = market.title; elements.axis.textContent = market.label;
-  renderChart(market.values); renderInsights(buildInsights(filtered, view));
-  for (const button of elements.tabs.querySelectorAll("button")) { const active = button.dataset.view === view; button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); }
-  const filterCount = Object.values(currentFilters()).filter((value) => value !== "All").length;
-  elements.caption.textContent = summary.count ? `${summary.count.toLocaleString()} records · ${filterCount ? `${filterCount} active filter${filterCount === 1 ? "" : "s"}` : "complete market"} · medians reduce sensitivity to extreme values.` : "No properties match this combination. Reset or widen the filters.";
+function visibleRows() { return sortRecords(filterRecords(data.records, filters), filters.view, filters.sort); }
+function summary() {
+  return { source: data.source.dataset, filters, count: visibleRows().length,
+    reference: data.records.find(row => row.geo_id === selectedId),
+    warning: "Area-level survey estimates, not sale records. Never aggregate medians across areas." };
 }
-
-function renderChart(groups) {
-  if (!groups.length) { elements.chart.replaceChildren(Object.assign(document.createElement("p"), { className: "no-data", textContent: "No matching records" })); return; }
-  const maximum = Math.max(...groups.map(({ value }) => value));
-  elements.chart.replaceChildren(...groups.map(({ name, value, count }) => {
-    const group = document.createElement("div"); group.className = "bar-group"; group.title = `${name}: ${formatViewValue(value, view)} across ${count.toLocaleString()} records`;
-    const valueNode = Object.assign(document.createElement("span"), { className: "bar-value", textContent: formatViewValue(value, view) });
-    const bar = document.createElement("div"); bar.className = "bar"; bar.style.height = `${Math.max(2, value / maximum * 78)}%`; bar.setAttribute("aria-hidden", "true");
-    const label = Object.assign(document.createElement("span"), { className: "bar-label", textContent: name });
-    group.append(valueNode, bar, label); return group;
-  }));
-}
-
-function renderInsights(insights) {
-  elements.insights.replaceChildren(...insights.map((insight) => {
-    const article = document.createElement("article"); article.className = "insight";
-    article.append(Object.assign(document.createElement("span"), { textContent: insight.label }), Object.assign(document.createElement("strong"), { textContent: insight.title }), Object.assign(document.createElement("small"), { textContent: insight.detail })); return article;
-  }));
-}
-
-function setFilters(input = {}) {
-  const mapping = { region: elements.region, neighborhood: elements.neighborhood, homeType: elements.type, segment: elements.segment, bedrooms: elements.bedrooms };
-  for (const [key, select] of Object.entries(mapping)) {
-    if (input[key] == null) continue;
-    const value = String(input[key]);
-    if (![...select.options].some((option) => option.value === value)) throw new Error(`Unsupported ${key}: ${value}`);
-    select.value = value;
+function syncControls() {
+  $("geography-filter").value = filters.geography;
+  $("search-filter").value = filters.search;
+  $("population-filter").value = String(filters.minPopulation);
+  $("sort-filter").value = filters.sort;
+  for (const button of document.querySelectorAll("[data-view]")) {
+    const active = button.dataset.view === filters.view;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
   }
-  if (input.view != null) { if (!["price", "affordability", "ppsf"].includes(input.view)) throw new Error(`Unsupported view: ${input.view}`); view = input.view; }
-  render(); return readSummary();
 }
-
-function readSummary() { return { filters: currentFilters(), view, ...summarize(filtered, records.length) }; }
-function compareMarkets(requestedView = view) { return groupMarketView(filtered, requestedView); }
-function exportView(limit = filtered.length) { const safeLimit = Math.max(1, Math.min(100, Math.floor(limit))); return { filters: currentFilters(), returned: Math.min(safeLimit, filtered.length), total: filtered.length, csv: toCsv(filtered.slice(0, safeLimit)) }; }
-
-for (const select of [elements.region, elements.neighborhood, elements.type, elements.segment, elements.bedrooms]) select.addEventListener("change", render);
-elements.tabs.addEventListener("click", (event) => { const requested = event.target.closest("button[data-view]")?.dataset.view; if (!requested) return; view = requested; render(); });
-document.querySelector("#reset-filters").addEventListener("click", () => { setFilters({ region: "All", neighborhood: "All", homeType: "All", segment: "All", bedrooms: "All", view: "price" }); showToast("Filters reset."); });
-document.querySelector("#download-csv").addEventListener("click", () => { const blob = new Blob([toCsv(filtered)], { type: "text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = "housing-market-view.csv"; anchor.click(); URL.revokeObjectURL(url); showToast(`${filtered.length.toLocaleString()} rows downloaded.`); });
-
-render();
-registerHousingTools({ modelContext: document.modelContext, setFilters: async (input) => setFilters(input), readSummary: async () => readSummary(), compareMarkets: async (requestedView) => compareMarkets(requestedView), exportView: async (limit) => exportView(limit) });
+function saveUrl() {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value !== DEFAULT_FILTERS[key]) params.set(key, value);
+  history.replaceState(null, "", location.pathname + (params.size ? "?" + params : ""));
+}
+function setFilters(input) {
+  filters = normalizeFilters({ ...filters, ...input });
+  page = 0; selectedId = "0400000US06";
+  syncControls(); saveUrl(); render();
+  return summary();
+}
+function renderReference() {
+  const reference = data.records.find(row => row.geo_id === selectedId);
+  $("reference-label").textContent = reference.name + (reference.geography === "state" ? " · statewide reference" : " · selected area");
+  $("reference-population").textContent = "Population: " + formatMetric(reference.metrics.population, "population");
+  $("state-reference").hidden = reference.geography === "state";
+  for (const key of Object.keys(VIEWS)) {
+    $("metric-" + key).textContent = formatMetric(reference.metrics[key], key);
+    $("moe-" + key).textContent = formatMoe(reference.metrics[key], key);
+  }
+}
+function render() {
+  const rows = visibleRows();
+  renderReference();
+  const stats = comparison(rows, filters.view, filters.sort);
+  const areaLabel = filters.geography === "county" ? (rows.length === 1 ? " county" : " counties") : (rows.length === 1 ? " city / census place" : " cities & census places");
+  $("results-count").textContent = rows.length.toLocaleString() + areaLabel + " in view";
+  $("view-title").textContent = (filters.sort === "desc" ? "Higher" : "Lower") + " published " + VIEWS[filters.view].short.toLowerCase() + " estimates";
+  $("metric-description").textContent = VIEWS[filters.view].explanation;
+  $("chart-caption").textContent = "Showing " + stats.rows.length + " of " + stats.exact + " exact estimates. " + stats.bounded +
+    " bounded and " + stats.unavailable + " unavailable values excluded from the chart; retained in the table and CSV. Differences may not be statistically significant.";
+  $("bar-chart").replaceChildren();
+  const max = Math.max(1, ...stats.rows.map(row => row.metrics[filters.view].value));
+  for (const row of stats.rows) {
+    const metric = row.metrics[filters.view];
+    const button = element("button", undefined, "comparison-row");
+    button.type = "button";
+    button.setAttribute("aria-label", row.name + ": " + formatMetric(metric, filters.view) + ". " + formatMoe(metric, filters.view) + ". Select area.");
+    button.append(element("span", row.name, "comparison-name"), element("strong", formatMetric(metric, filters.view), "comparison-value"));
+    const track = element("span", undefined, "comparison-track");
+    const fill = element("span", undefined, "comparison-fill");
+    fill.style.width = (metric.value / max * 100) + "%";
+    track.append(fill); button.append(track);
+    button.addEventListener("click", () => selectArea(row.geo_id)); $("bar-chart").append(button);
+  }
+  if (!stats.rows.length) $("bar-chart").append(element("p", "No exact estimates match. Try another search or check the table for bounded values.", "no-data"));
+  $("coverage-exact").textContent = stats.exact.toLocaleString();
+  $("coverage-bounded").textContent = stats.bounded.toLocaleString();
+  $("coverage-missing").textContent = stats.unavailable.toLocaleString();
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  page = Math.min(page, pages - 1);
+  $("table-body").replaceChildren();
+  for (const row of rows.slice(page * pageSize, (page + 1) * pageSize)) {
+    const tr = element("tr");
+    const name = element("th"); name.scope = "row";
+    const button = element("button", row.name, "area-button"); button.type = "button";
+    button.addEventListener("click", () => selectArea(row.geo_id)); name.append(button); tr.append(name);
+    for (const key of [...Object.keys(VIEWS), "population"]) {
+      const td = element("td");
+      td.append(element("strong", formatMetric(row.metrics[key], key)));
+      td.append(element("small", formatMoe(row.metrics[key], key)));
+      tr.append(td);
+    }
+    $("table-body").append(tr);
+  }
+  if (!rows.length) {
+    const tr = element("tr"), td = element("td", "No areas match your filters. Reset filters to see all counties.");
+    td.colSpan = 6; tr.append(td); $("table-body").append(tr);
+  }
+  $("page-label").textContent = "Page " + (page + 1) + " of " + pages;
+  $("previous-page").disabled = page === 0;
+  $("next-page").disabled = page === pages - 1;
+  $("download-csv").disabled = rows.length === 0;
+}
+function selectArea(id) { selectedId = id; renderReference(); $("reference-label").scrollIntoView({ block: "center", behavior: "smooth" }); }
+function showToast(text) {
+  $("toast").textContent = text; $("toast").classList.add("show");
+  setTimeout(() => $("toast").classList.remove("show"), 3500);
+}
+async function start() {
+  controls.forEach(id => $(id).disabled = true);
+  document.querySelectorAll("[data-view]").forEach(button => button.disabled = true);
+  try {
+    const response = await fetch("./data/housing.json");
+    if (!response.ok) throw new Error("Data request failed");
+    data = validateDataset(await response.json());
+    try {
+      const params = new URLSearchParams(location.search);
+      filters = normalizeFilters(Object.fromEntries(Object.keys(DEFAULT_FILTERS).filter(key => params.has(key)).map(key => [key, params.get(key)])));
+    } catch { filters = { ...DEFAULT_FILTERS }; showToast("Invalid link filters were reset."); }
+    $("loading-status").hidden = true;
+    $("dashboard").hidden = false;
+    $("source-date").textContent = data.source.retrieved_at.slice(0, 10);
+    $("coverage-note").textContent = data.counts.county + " counties · " + data.counts.place.toLocaleString() + " cities & census places";
+    controls.forEach(id => $(id).disabled = false);
+    document.querySelectorAll("[data-view]").forEach(button => button.disabled = false);
+    syncControls(); render();
+    $("geography-filter").addEventListener("change", event => setFilters({ geography: event.target.value }));
+    $("search-filter").addEventListener("input", event => setFilters({ search: event.target.value }));
+    $("population-filter").addEventListener("input", event => {
+      try { setFilters({ minPopulation: event.target.value }); } catch { event.target.value = filters.minPopulation; showToast("Enter a nonnegative population."); }
+    });
+    $("sort-filter").addEventListener("change", event => setFilters({ sort: event.target.value }));
+    $("reset-filters").addEventListener("click", () => setFilters(DEFAULT_FILTERS));
+    document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => setFilters({ view: button.dataset.view })));
+    $("state-reference").addEventListener("click", () => { selectedId = "0400000US06"; renderReference(); });
+    $("previous-page").addEventListener("click", () => { page--; render(); });
+    $("next-page").addEventListener("click", () => { page++; render(); });
+    $("download-csv").addEventListener("click", () => {
+      const url = URL.createObjectURL(new Blob([toCsv(visibleRows(), data.source)], { type: "text/csv;charset=utf-8" }));
+      const link = element("a"); link.href = url; link.download = "california-acs-2020-2024-" + filters.geography + ".csv";
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000); showToast("Export prepared: " + visibleRows().length + (visibleRows().length === 1 ? " area" : " areas") + " with sources and uncertainty.");
+    });
+    registerHousingTools({ modelContext: navigator.modelContext, setFilters, readSummary: summary,
+      compareMarkets: view => comparison(filterRecords(data.records, filters), view, filters.sort),
+      exportView: limit => {
+        if (!Number.isInteger(limit) || limit < 1 || limit > 2000) throw new Error("Export limit must be 1–2000.");
+        const rows = visibleRows();
+        return { csv: toCsv(rows.slice(0, limit), data.source), total: rows.length, exported: Math.min(limit, rows.length) };
+      } });
+  } catch {
+    $("loading-status").textContent = "The public-data snapshot could not be loaded. Please reload the page. No substitute or simulated data is shown.";
+    $("loading-status").setAttribute("role", "alert");
+  }
+}
+start();

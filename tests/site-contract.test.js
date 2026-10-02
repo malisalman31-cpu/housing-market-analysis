@@ -11,12 +11,13 @@ test("document exposes core accessible product controls", () => {
   assert.match(index, /<meta name="viewport"/);
   assert.match(index, /Skip to analysis/);
   assert.match(index, /aria-label="Market filters"/);
-  assert.match(index, /role="tablist"/);
-  assert.match(index, /Portfolio recreation/);
+  assert.match(index, /aria-label="Analysis views"/);
+  assert.match(index, /area-level survey estimates/);
+  assert.match(index, /margins of error/);
 });
 
 test("site is dependency-free and references local modules", () => {
-  assert.doesNotMatch(index, /(?:src|href)="https?:\/\//);
+  assert.doesNotMatch(index, /<script[^>]*src="https?:\/\//);
   assert.match(index, /src="\.\/app\.js"/);
   assert.match(index, /href="\.\/styles\.css"/);
 });
